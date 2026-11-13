@@ -1,4 +1,4 @@
-# A local Perses with the plugin and a made-up cluster to draw. See dev/README.md.
+# A local Perses with the plugin and a made-up cluster to draw. See "Try it locally" in README.md.
 name: honeycomb-dev
 
 services:
