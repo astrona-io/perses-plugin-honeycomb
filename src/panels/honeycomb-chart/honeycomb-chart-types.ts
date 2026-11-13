@@ -17,6 +17,8 @@ export type HoneycombChartEditorProps =
   OptionsEditorProps<HoneycombChartOptions>;
 
 export type CellShape = "hexagon" | "square";
+/** `compact`: each group a block a little wider than tall. `row`: groups run the full width. */
+export type GroupLayout = "compact" | "row";
 /** `severity`: worst first, then by name. */
 export type SortOrder = "severity" | "name" | "value";
 
@@ -53,6 +55,8 @@ export interface HoneycombChartOptions {
   currentOnly?: boolean;
   /** Default `hexagon`. */
   shape?: CellShape;
+  /** Default `compact`. */
+  groupLayout?: GroupLayout;
   /** Default `severity`. Applies to cells and to groups. */
   sort?: SortOrder;
   /** Fixed cell radius in px. Fits the panel when unset. */
@@ -64,6 +68,7 @@ export interface HoneycombChartOptions {
 }
 
 export const DEFAULT_SHAPE: CellShape = "hexagon";
+export const DEFAULT_GROUP_LAYOUT: GroupLayout = "compact";
 export const DEFAULT_SORT: SortOrder = "severity";
 
 export function createInitialHoneycombChartOptions(): HoneycombChartOptions {

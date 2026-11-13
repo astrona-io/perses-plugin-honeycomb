@@ -1,0 +1,28 @@
+# A local Perses with the plugin and a made-up cluster to draw. See dev/README.md.
+name: honeycomb-dev
+
+services:
+  fake-metrics:
+    image: docker.io/library/python:3.13-alpine
+    command: ["python", "/app/fake_metrics.py"]
+    volumes:
+      - ./fake_metrics.py:/app/fake_metrics.py:ro,z
+
+  prometheus:
+    image: docker.io/prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
+    depends_on: [fake-metrics]
+
+  perses:
+    image: docker.io/persesdev/perses:v0.55.1
+    command: ["--config", "/etc/perses/config.yaml"]
+    ports:
+      - "127.0.0.1:${PERSES_PORT:-8080}:8080"
+    volumes:
+      - ./perses.yaml:/etc/perses/config.yaml:ro,z
+      - ./provisioning:/etc/perses/provisioning:ro,z
+      # Holds Honeycomb-<version>.tar.gz from `percli plugin build`.
+      - ./archive:/etc/perses/plugins-archive-honeycomb:ro,z
+    depends_on: [prometheus]

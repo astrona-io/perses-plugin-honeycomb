@@ -21,6 +21,8 @@ spec: close({
 	thresholds?: common.#thresholds
 	mappings?: [...common.#mappings]
 	shape?: "hexagon" | "square"
+	// compact: each group a block a little wider than tall. row: groups run the full width.
+	groupLayout?: "compact" | "row"
 	// Cells within a group, and the groups. severity: worst first.
 	sort?: "severity" | "name" | "value"
 	// Fixed cell radius in px. Fits the panel when unset.

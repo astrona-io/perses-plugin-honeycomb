@@ -5,6 +5,11 @@ series, coloured by its state or value and grouped by a label. Each pod or node 
 namespace or node: the one `CrashLoopBackOff` pod among three hundred is a red, outlined cell at the
 top of its group, where a table would bury it on page four.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/overview-dark.png">
+  <img alt="Pods grouped by namespace and by node, and node CPU, as hexagons; the one crash-looping pod in each namespace is red and outlined" src="docs/images/overview-light.png">
+</picture>
+
 ```promql
 # Pods by namespace, coloured by phase
 max by (namespace, pod, phase) (kube_pod_status_phase) == 1
@@ -29,6 +34,17 @@ work but are not tested.
   `drillDown: [workload]`, a namespace opens into its workloads, each a group of its pods, and a
   workload opens into its pods. A breadcrumb above the grid leads back. See
   [Pods by workload](#pods-by-workload) for a query that adds a `workload` label.
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/drill-namespace-dark.png">
+    <img alt="The shop namespace opened into its workloads, each a block of its pods" src="docs/images/drill-namespace-light.png">
+  </picture>
+
+- **Group layout** (`groupLayout`): `compact` (default) packs each group into a block a little wider
+  than tall, side by side, so many small groups fit on one screen; a group stays at least as wide as
+  its title, so a group of two or three cells is a single row. `row` lets each group run the full
+  width of the panel. Each group's title is its name in bold, its cell count, and the number of
+  problem cells in the error colour.
 - Only series that still have a sample at the end of the time range count (`currentOnly`, on by
   default). A range query keeps a deleted pod's series, so without this a pod that is gone would
   keep its last state. Turn it off to reduce whole series over the range, like the mean CPU of every
@@ -108,6 +124,7 @@ spec:
       - { value: 90, color: "#d32f2f" }
   mappings: [] # Perses value mappings (common.#mappings)
   shape: hexagon # hexagon | square
+  groupLayout: compact # compact | row
   sort: severity # severity | name | value
   cellSize: 12 # optional; radius in px
   showValues: true
@@ -166,6 +183,21 @@ nameLabel: node
 stateLabel: status
 query: kube_node_status_condition{condition="Ready"} == 1
 ```
+
+## Try it locally
+
+`dev/` runs Perses with the plugin, a Prometheus, and a made-up cluster of about eighty pods in six
+namespaces (some crash-looping, pending or failed) to draw. The screenshots above come from it.
+It needs `podman compose` or `docker compose`.
+
+```bash
+npm ci && npm run build && percli plugin build
+cp Honeycomb-*.tar.gz dev/archive/
+podman compose -f dev/compose.yaml up -d    # PERSES_PORT=18080 to move it off 8080
+```
+
+Open <http://localhost:8080/projects/demo/dashboards/honeycomb>. Data appears after Prometheus' first
+scrapes, within a minute. `podman compose -f dev/compose.yaml down` removes it again.
 
 ## Build
 

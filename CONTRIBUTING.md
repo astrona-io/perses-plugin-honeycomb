@@ -30,6 +30,9 @@ version in step with the Perses version the plugin targets.
 
 ## Try it in Perses
 
+The quickest way is the `dev/` stack: see "Try it locally" in the README. It is also where the
+README screenshots come from; retake them after a visible change.
+
 `npm run dev` serves the plugin for `percli plugin start` against a running Perses. To test the
 packaged archive instead, put `Honeycomb-<version>.tar.gz` in a directory listed in
 `plugin.archive_paths` (see the README) and restart Perses.
