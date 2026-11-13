@@ -271,7 +271,7 @@ Copy the archive into the directory of bundled plugins. No config change is need
 directory is in the default `archive_paths`:
 
 ```dockerfile
-FROM persesdev/perses:v0.54.0
+FROM persesdev/perses:v0.55.1
 COPY Honeycomb-0.2.0.tar.gz /etc/perses/plugins-archive/
 ```
 
