@@ -25,8 +25,16 @@ export interface HoneycombChartOptions {
   calculation: CalculationType;
   /** Series label that names a cell (`pod`, `node`). The series name when unset or missing. */
   nameLabel?: string;
-  /** Series label that groups cells (`namespace`, `node`). One group when unset. */
+  /**
+   * Series label that groups cells (`namespace`, `node`). One group when unset. Clicking a group
+   * shows only its cells; a breadcrumb leads back.
+   */
   groupBy?: string;
+  /**
+   * Further grouping labels, one per click into a group (`[workload]`: namespace, then its workloads,
+   * then one workload's pods). Needs `groupBy`.
+   */
+  drillDown?: string[];
   /**
    * Series label that holds a state (`phase`, `reason`, `condition`). When set, a series stands for
    * "this cell is in that state" and counts only while its value is non-zero, the kube-state-metrics
@@ -38,6 +46,11 @@ export interface HoneycombChartOptions {
   thresholds?: ThresholdOptions;
   /** Value or state to text and colour. */
   mappings?: ValueMapping[];
+  /**
+   * Only series with a sample at the end of the time range, so a pod that is gone does not keep
+   * its last state. Default true. Turn off to reduce whole series over the range (mean, max).
+   */
+  currentOnly?: boolean;
   /** Default `hexagon`. */
   shape?: CellShape;
   /** Default `severity`. Applies to cells and to groups. */
@@ -57,6 +70,7 @@ export function createInitialHoneycombChartOptions(): HoneycombChartOptions {
   return {
     calculation: "last",
     format: { unit: "decimal" },
+    currentOnly: true,
     shape: DEFAULT_SHAPE,
     sort: DEFAULT_SORT,
     showValues: true,
