@@ -1,0 +1,30 @@
+{
+  "kind": "HoneycombChart",
+  "spec": {
+    "calculation": "last",
+    "nameLabel": "pod",
+    "groupBy": "namespace",
+    "stateLabel": "reason",
+    "mappings": [
+      {
+        "kind": "Value",
+        "spec": {
+          "value": "CrashLoopBackOff",
+          "result": { "value": "CrashLoop", "color": "#d32f2f" }
+        }
+      }
+    ],
+    "thresholds": {
+      "mode": "percent",
+      "steps": [
+        { "value": 70, "color": "#ed6c02" },
+        { "value": 90, "color": "#d32f2f" }
+      ]
+    },
+    "format": { "unit": "percent-decimal" },
+    "shape": "hexagon",
+    "sort": "severity",
+    "showValues": true,
+    "showLegend": true
+  }
+}

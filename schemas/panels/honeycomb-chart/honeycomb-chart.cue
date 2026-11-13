@@ -1,0 +1,27 @@
+package model
+
+import (
+	"github.com/perses/shared/cue/common"
+)
+
+kind: "HoneycombChart"
+spec: close({
+	// How each series is reduced to one value (last, mean, max, ...).
+	calculation: common.#calculation
+	// Label that names a cell (pod, node). The series name when unset.
+	nameLabel?: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	// Label that groups cells (namespace, node). One group when unset.
+	groupBy?: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	// Label holding a state (phase, reason). A series then counts only while its value is non-zero.
+	stateLabel?: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	format?:     common.#format
+	thresholds?: common.#thresholds
+	mappings?: [...common.#mappings]
+	shape?: "hexagon" | "square"
+	// Cells within a group, and the groups. severity: worst first.
+	sort?: "severity" | "name" | "value"
+	// Fixed cell radius in px. Fits the panel when unset.
+	cellSize?:   number & >0
+	showValues?: bool
+	showLegend?: bool
+})
