@@ -1,16 +1,24 @@
-import { MouseEvent, ReactElement, useMemo, useState } from "react";
-import { Box, Typography, useTheme } from "@mui/material";
+import {
+  KeyboardEvent,
+  MouseEvent,
+  ReactElement,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { Box, Breadcrumbs, Link, Typography, useTheme } from "@mui/material";
 import { formatValue, useChartsTheme } from "@perses-dev/components";
 import {
   DEFAULT_SHAPE,
   DEFAULT_SORT,
   HoneycombChartProps,
 } from "./honeycomb-chart-types";
-import { Cell, ColourSet, buildCells } from "./data";
+import { Cell, ColourSet, buildCells, groupCells } from "./data";
 import { HEADER_HEIGHT, cellCentre, fitLayout, hexPoints } from "./layout";
 
 const DEFAULT_FORMAT = { unit: "decimal" as const };
 const LEGEND_HEIGHT = 22;
+const BREADCRUMB_HEIGHT = 24;
 /** Cells smaller than this radius carry no text. */
 const TEXT_MIN_RADIUS = 16;
 const TOOLTIP_WIDTH = 280;
@@ -43,6 +51,9 @@ export function HoneycombChartComponent(
   const muiTheme = useTheme();
   const chartsTheme = useChartsTheme();
   const [hover, setHover] = useState<Hover | undefined>();
+  const [hoverGroup, setHoverGroup] = useState<string | undefined>();
+  /** One value per level drilled into, outermost first. */
+  const [path, setPath] = useState<string[]>([]);
 
   const shape = spec.shape ?? DEFAULT_SHAPE;
   const showValues = spec.showValues ?? true;
@@ -66,21 +77,35 @@ export function HoneycombChartComponent(
     [muiTheme, chartsTheme],
   );
 
-  const { groups, cells } = useMemo(
+  const levels = useMemo(
+    () =>
+      spec.groupBy
+        ? [spec.groupBy, ...(spec.drillDown ?? []).filter(Boolean)]
+        : [],
+    [spec.groupBy, spec.drillDown],
+  );
+  const levelsKey = levels.join("\u0000");
+  // A path into other grouping labels means nothing: start again at the top.
+  useEffect(() => setPath([]), [levelsKey]);
+
+  const { cells: all } = useMemo(
     () =>
       buildCells(queryResults, {
         calculation: spec.calculation ?? "last",
         nameLabel: spec.nameLabel || undefined,
-        groupBy: spec.groupBy || undefined,
+        levels,
         stateLabel: spec.stateLabel || undefined,
+        currentOnly: spec.currentOnly ?? true,
         format,
         thresholds: spec.thresholds,
         mappings: spec.mappings,
-        sort: spec.sort ?? DEFAULT_SORT,
         colours,
       }),
-    [queryResults, spec, format, colours],
+    [queryResults, spec, levels, format, colours],
   );
+  const sort = spec.sort ?? DEFAULT_SORT;
+  const groups = useMemo(() => groupCells(all, path, sort), [all, path, sort]);
+  const cells = groups.reduce((n, g) => n + g.cells.length, 0);
 
   const legend = useMemo(() => {
     const entries = new Map<
@@ -107,10 +132,14 @@ export function HoneycombChartComponent(
 
   const width = contentDimensions?.width ?? 0;
   const height = contentDimensions?.height ?? 0;
-  const headers = Boolean(spec.groupBy);
+  // Groups exist until the last level is drilled into; clicking one goes a level deeper.
+  const headers = path.length < levels.length;
+  const drillable = headers;
   const gridHeight = Math.max(
     0,
-    height - (showLegend && cells > 0 ? LEGEND_HEIGHT : 0),
+    height -
+      (showLegend && cells > 0 ? LEGEND_HEIGHT : 0) -
+      (path.length > 0 ? BREADCRUMB_HEIGHT : 0),
   );
   const layout = useMemo(
     () =>
@@ -130,7 +159,22 @@ export function HoneycombChartComponent(
   const byKey = new Map<string, Cell>();
   for (const g of groups) for (const c of g.cells) byKey.set(c.key, c);
 
+  const groupOf = (e: MouseEvent<SVGSVGElement>): string | undefined =>
+    (e.target as Element)
+      .closest?.("[data-group]")
+      ?.getAttribute("data-group") ?? undefined;
+
+  const onClick = (e: MouseEvent<SVGSVGElement>): void => {
+    const name = drillable ? groupOf(e) : undefined;
+    if (name === undefined) return;
+    setPath([...path, name]);
+    setHover(undefined);
+    setHoverGroup(undefined);
+  };
+
   const onMove = (e: MouseEvent<SVGSVGElement>): void => {
+    const group = drillable ? groupOf(e) : undefined;
+    if (group !== hoverGroup) setHoverGroup(group);
     const key = (e.target as SVGElement).getAttribute?.("data-key");
     const cell = key ? byKey.get(key) : undefined;
     if (!cell) {
@@ -167,6 +211,38 @@ export function HoneycombChartComponent(
         flexDirection: "column",
       }}
     >
+      {path.length > 0 ? (
+        <Breadcrumbs
+          maxItems={4}
+          sx={{
+            height: BREADCRUMB_HEIGHT,
+            display: "flex",
+            alignItems: "center",
+            px: 0.5,
+            fontSize: 13,
+            "& ol": { flexWrap: "nowrap" },
+          }}
+        >
+          {["All", ...path].map((crumb, i) =>
+            i === path.length ? (
+              <Typography key={i} variant="body2" noWrap sx={{ fontSize: 13 }}>
+                {crumb}
+              </Typography>
+            ) : (
+              <Link
+                key={i}
+                component="button"
+                underline="hover"
+                color="inherit"
+                sx={{ fontSize: 13 }}
+                onClick={() => setPath(path.slice(0, i))}
+              >
+                {crumb}
+              </Link>
+            ),
+          )}
+        </Breadcrumbs>
+      ) : null}
       {cells === 0 ? (
         <Typography
           sx={{
@@ -188,7 +264,10 @@ export function HoneycombChartComponent(
             overflowY: layout.height > gridHeight ? "auto" : "hidden",
             overflowX: "hidden",
           }}
-          onMouseLeave={() => setHover(undefined)}
+          onMouseLeave={() => {
+            setHover(undefined);
+            setHoverGroup(undefined);
+          }}
         >
           <svg
             width={width - 2}
@@ -196,6 +275,7 @@ export function HoneycombChartComponent(
             role="img"
             aria-label={`${cells} cells in ${groups.length} groups`}
             onMouseMove={onMove}
+            onClick={onClick}
             style={{
               display: "block",
               fontFamily: muiTheme.typography.fontFamily,
@@ -205,7 +285,38 @@ export function HoneycombChartComponent(
               const box = layout.boxes[gi];
               if (!box) return null;
               return (
-                <g key={group.name} transform={`translate(${box.x},${box.y})`}>
+                <g
+                  key={group.name}
+                  transform={`translate(${box.x},${box.y})`}
+                  data-group={drillable ? group.name : undefined}
+                  style={{ cursor: drillable ? "pointer" : "default" }}
+                  {...(drillable
+                    ? {
+                        role: "button",
+                        tabIndex: 0,
+                        "aria-label": `Open ${group.name}`,
+                        onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          setPath([...path, group.name]);
+                        },
+                      }
+                    : {})}
+                >
+                  {drillable ? (
+                    <rect
+                      x={-3}
+                      y={-2}
+                      width={box.width + 6}
+                      height={box.height + 4}
+                      rx={4}
+                      fill={
+                        hoverGroup === group.name
+                          ? muiTheme.palette.action.hover
+                          : "transparent"
+                      }
+                    />
+                  ) : null}
                   {headers ? (
                     <text
                       x={0}
@@ -230,7 +341,6 @@ export function HoneycombChartComponent(
                       fill: cell.color,
                       stroke: isHover ? outline : stroke,
                       strokeWidth: isHover ? 2 : 1.5,
-                      style: { cursor: "default" },
                     };
                     return (
                       <g key={cell.key}>
@@ -333,16 +443,17 @@ export function HoneycombChartComponent(
           <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
             {hover.cell.name}
           </Typography>
-          {hover.cell.group ? (
+          {levels.map((label, i) => (
             <Typography
+              key={label}
               variant="caption"
               color="text.secondary"
               noWrap
               component="div"
             >
-              {spec.groupBy}: {hover.cell.group}
+              {label}: {hover.cell.path[i]}
             </Typography>
-          ) : null}
+          ))}
           <Box
             sx={{ display: "flex", alignItems: "center", gap: 0.75, my: 0.5 }}
           >
@@ -381,6 +492,16 @@ export function HoneycombChartComponent(
                 {k}={v}
               </Typography>
             ))}
+          {drillable ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="div"
+              sx={{ mt: 0.5, fontStyle: "italic" }}
+            >
+              Click to open {hover.cell.path[path.length]}
+            </Typography>
+          ) : null}
         </Box>
       ) : null}
     </Box>

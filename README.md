@@ -14,6 +14,7 @@ max by (namespace, pod, phase) (kube_pod_status_phase) == 1
 
 | Plugin | Perses  | Status              |
 | ------ | ------- | ------------------- |
+| 0.2.x  | v0.55.x | Tested with v0.55.1 |
 | 0.1.x  | v0.54.x | Tested with v0.54.0 |
 
 The plugin is built against `@perses-dev/*` 0.54 and `percli` v0.54.0. Other Perses minor versions may
@@ -24,6 +25,14 @@ work but are not tested.
 - Each series is reduced to one number with a Perses calculation (`last`, `mean`, `max`, ...) and
   becomes one cell. `nameLabel` names the cell (the series name when unset), `groupBy` groups cells
   under a title with their count and the number of problem cells.
+- **Drill down**: click a group (or focus it and press Enter) to see only its cells. With
+  `drillDown: [workload]`, a namespace opens into its workloads, each a group of its pods, and a
+  workload opens into its pods. A breadcrumb above the grid leads back. See
+  [Pods by workload](#pods-by-workload) for a query that adds a `workload` label.
+- Only series that still have a sample at the end of the time range count (`currentOnly`, on by
+  default). A range query keeps a deleted pod's series, so without this a pod that is gone would
+  keep its last state. Turn it off to reduce whole series over the range, like the mean CPU of every
+  pod that ran.
 - **Value cells** (no `stateLabel`): the colour comes from Perses thresholds (absolute or percent of
   `max`) and value mappings; mappings win. Good for CPU, memory or restarts.
 - **State cells** (`stateLabel` set): the series stands for "this cell is in the state in that label"
@@ -50,6 +59,36 @@ work but are not tested.
   group, value or state, and the series labels.
 - Light and dark themes follow Perses.
 
+### Pods by workload
+
+kube-state-metrics has no `workload` label on pod series. This join adds one: the pod's controller,
+through its ReplicaSet to the Deployment and through its Job to the CronJob. A Job without a CronJob,
+a StatefulSet or a DaemonSet is its own workload.
+
+```promql
+label_replace(
+  max by (namespace, pod, phase) (kube_pod_status_phase{phase!="Succeeded"}) == 1,
+  "state", "$1", "phase", "(.*)"
+)
+* on (namespace, pod) group_left (workload) max by (namespace, pod, workload) (
+    label_replace(kube_pod_owner{owner_kind!~"ReplicaSet|Job"}, "workload", "$1", "owner_name", "(.*)")
+  or on (namespace, pod) (
+    label_replace(kube_pod_owner{owner_kind="ReplicaSet"}, "replicaset", "$1", "owner_name", "(.*)")
+    * on (namespace, replicaset) group_left (workload)
+    label_replace(kube_replicaset_owner, "workload", "$1", "owner_name", "(.*)")
+  )
+  or on (namespace, pod) (
+    label_replace(kube_pod_owner{owner_kind="Job"}, "job_name", "$1", "owner_name", "(.*)")
+    * on (namespace, job_name) group_left (workload)
+    label_replace(kube_job_owner{owner_kind="CronJob"}, "workload", "$1", "owner_name", "(.*)")
+  )
+  or on (namespace, pod)
+    label_replace(kube_pod_owner{owner_kind="Job"}, "workload", "$1", "owner_name", "(.*)")
+)
+```
+
+With `nameLabel: pod`, `groupBy: namespace`, `stateLabel: state` and `drillDown: [workload]`.
+
 ### Spec
 
 ```yaml
@@ -58,7 +97,9 @@ spec:
   calculation: last # required; any Perses calculation
   nameLabel: pod # optional; series name when unset
   groupBy: namespace # optional; one group when unset
+  drillDown: [workload] # optional; further grouping labels, one per click
   stateLabel: phase # optional; turns cells into state cells
+  currentOnly: true # default; hide series that ended before the end of the range
   format: { unit: percent-decimal }
   thresholds: # Perses thresholds (common.#thresholds)
     mode: percent
@@ -149,14 +190,14 @@ Download `Honeycomb-<version>.tar.gz` from the
 Perses can read, and add that directory to the config:
 
 ```bash
-curl -fLO https://github.com/astrona-io/perses-plugin-honeycomb/releases/download/v0.1.0/Honeycomb-0.1.0.tar.gz
+curl -fLO https://github.com/astrona-io/perses-plugin-honeycomb/releases/download/v0.2.0/Honeycomb-0.2.0.tar.gz
 ```
 
 ```yaml
 plugin:
   archive_paths:
     - /etc/perses/plugins-archive # plugins bundled with Perses
-    - /etc/perses/plugins-archive-extra # put Honeycomb-0.1.0.tar.gz here
+    - /etc/perses/plugins-archive-extra # put Honeycomb-0.2.0.tar.gz here
 ```
 
 ### Option B: Kubernetes image volume
@@ -199,7 +240,7 @@ directory is in the default `archive_paths`:
 
 ```dockerfile
 FROM persesdev/perses:v0.54.0
-COPY Honeycomb-0.1.0.tar.gz /etc/perses/plugins-archive/
+COPY Honeycomb-0.2.0.tar.gz /etc/perses/plugins-archive/
 ```
 
 ## Licences and credits

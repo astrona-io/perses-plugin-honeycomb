@@ -67,14 +67,42 @@ export function HoneycombChartSettingsEditor(
             "groupBy",
             "Group by label",
             "namespace",
-            "Label that groups cells. One group when empty",
+            "Label that groups cells. Click a group to see only its cells. One group when empty",
           )}
+          <OptionsEditorControl
+            label="Drill down labels"
+            description="Comma-separated labels, one per click into a group (workload). Needs a group by label"
+            control={
+              <TextField
+                size="small"
+                placeholder="workload"
+                defaultValue={(value.drillDown ?? []).join(", ")}
+                onBlur={(e) => {
+                  const labels = e.target.value
+                    .split(",")
+                    .map((l) => l.trim())
+                    .filter(Boolean);
+                  set({ drillDown: labels.length ? labels : undefined });
+                }}
+              />
+            }
+          />
           {labelField(
             "stateLabel",
             "State label",
             "phase",
             "Label holding a state (phase, reason). A series then counts only while its value is non-zero; the worst state wins",
           )}
+          <OptionsEditorControl
+            label="Current only"
+            description="Hide series that ended before the end of the time range, such as deleted pods"
+            control={
+              <Switch
+                checked={value.currentOnly ?? true}
+                onChange={(_, currentOnly) => set({ currentOnly })}
+              />
+            }
+          />
         </OptionsEditorGroup>
         <OptionsEditorGroup title="Format">
           <FormatControls

@@ -9,7 +9,7 @@ export const GROUP_GAP = 12;
 /** Height of a group's title. */
 export const HEADER_HEIGHT = 18;
 /** A group is at least this wide (or the panel width) so its title stays readable. */
-const MIN_TITLE_WIDTH = 96;
+const MIN_TITLE_WIDTH = 128;
 /** Gap between neighbouring cells. */
 const CELL_GAP = 1.5;
 

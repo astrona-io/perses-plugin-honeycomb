@@ -37,10 +37,11 @@ export function stateSeverity(state: string): Severity {
 }
 
 export interface Cell {
-  /** Unique within the panel: group and name. */
+  /** Unique within the panel: its path and name. */
   key: string;
   name: string;
-  group: string;
+  /** Value of each grouping label (`groupBy`, then `drillDown`), outermost first. */
+  path: string[];
   /** Reduced series value. For a state cell, the value of the series that set its state. */
   value: number;
   /** State from the state label; undefined for a value cell. */
@@ -79,20 +80,41 @@ export interface ColourSet {
 export interface BuildOptions {
   calculation: CalculationType;
   nameLabel?: string;
-  groupBy?: string;
+  /** Grouping labels, outermost first: `groupBy`, then `drillDown`. */
+  levels: string[];
   stateLabel?: string;
+  currentOnly: boolean;
   format: FormatOptions;
   thresholds?: ThresholdOptions;
   mappings?: ValueMapping[];
-  sort: SortOrder;
   colours: ColourSet;
 }
 
 export interface BuildResult {
-  groups: Group[];
-  cells: number;
+  cells: Cell[];
   /** Series dropped because they had no value in the time range. */
   empty: number;
+  /** Series dropped by `currentOnly`: they ended before the end of the time range. */
+  ended: number;
+}
+
+/**
+ * The time of the newest sample in any series, and how far before it a series may end and still
+ * count as current: one and a half query steps, so a missing last point does not drop it.
+ */
+function currentWindow(
+  queryResults: Array<PanelData<TimeSeriesData>>,
+): { latest: number; slack: number } | undefined {
+  let latest = -Infinity;
+  let step = 0;
+  for (const result of queryResults) {
+    step = Math.max(step, result.data.stepMs ?? 0);
+    for (const series of result.data.series) {
+      const last = series.values[series.values.length - 1];
+      if (last && last[0] > latest) latest = last[0];
+    }
+  }
+  return Number.isFinite(latest) ? { latest, slack: step * 1.5 } : undefined;
 }
 
 /** Placeholder for a missing or empty label, so such series stay visible. */
@@ -169,8 +191,14 @@ function makeCell(
     (opts.nameLabel ? labels[opts.nameLabel]?.trim() : undefined) ||
     seriesName ||
     NONE;
-  const group = opts.groupBy ? labels[opts.groupBy]?.trim() || NONE : "";
-  const base = { key: `${group}\u0000${name}`, name, group, value, labels };
+  const path = opts.levels.map((l) => labels[l]?.trim() || NONE);
+  const base = {
+    key: [...path, name].join("\u0000"),
+    name,
+    path,
+    value,
+    labels,
+  };
 
   if (opts.stateLabel) {
     const state = labels[opts.stateLabel]?.trim() || NONE;
@@ -237,7 +265,7 @@ function compareCells(sort: SortOrder): (a: Cell, b: Cell) => number {
 }
 
 /**
- * Reduces every series to a cell, keyed by group and name. When several series land on one cell
+ * Reduces every series to a cell, keyed by its path and name. When several series land on one cell
  * (pod phase and container waiting reason, say), the worse one wins.
  */
 export function buildCells(
@@ -246,8 +274,17 @@ export function buildCells(
 ): BuildResult {
   const cells = new Map<string, Cell>();
   let empty = 0;
+  let ended = 0;
+  const window = opts.currentOnly ? currentWindow(queryResults) : undefined;
   for (const result of queryResults) {
     for (const series of result.data.series) {
+      if (window) {
+        const last = series.values[series.values.length - 1];
+        if (!last || last[0] < window.latest - window.slack) {
+          ended += 1;
+          continue;
+        }
+      }
       const value = getCalculation(series.values, opts.calculation);
       if (value === undefined || value === null || Number.isNaN(value)) {
         empty += 1;
@@ -266,24 +303,39 @@ export function buildCells(
     }
   }
 
+  return { cells: [...cells.values()], empty, ended };
+}
+
+/**
+ * The cells under `path` (one value per level already drilled into), grouped by the next level.
+ * Past the last level they form one group named "".
+ */
+export function groupCells(
+  cells: Cell[],
+  path: string[],
+  sort: SortOrder,
+): Group[] {
+  const depth = path.length;
   const groups = new Map<string, Group>();
-  for (const cell of cells.values()) {
-    let g = groups.get(cell.group);
+  for (const cell of cells) {
+    if (path.some((v, i) => cell.path[i] !== v)) continue;
+    const name = cell.path[depth] ?? "";
+    let g = groups.get(name);
     if (!g) {
-      g = { name: cell.group, cells: [], rank: 0, problems: 0 };
-      groups.set(cell.group, g);
+      g = { name, cells: [], rank: 0, problems: 0 };
+      groups.set(name, g);
     }
     g.cells.push(cell);
     g.rank = Math.max(g.rank, cell.rank);
     if (cell.problem) g.problems += 1;
   }
-  const cmp = compareCells(opts.sort);
+  const cmp = compareCells(sort);
   const list = [...groups.values()];
   for (const g of list) g.cells.sort(cmp);
   list.sort((a, b) =>
-    opts.sort === "severity"
+    sort === "severity"
       ? b.problems - a.problems || b.rank - a.rank || byName(a.name, b.name)
       : byName(a.name, b.name),
   );
-  return { groups: list, cells: cells.size, empty };
+  return list;
 }

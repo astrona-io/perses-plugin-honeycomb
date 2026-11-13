@@ -12,8 +12,11 @@ spec: close({
 	nameLabel?: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
 	// Label that groups cells (namespace, node). One group when unset.
 	groupBy?: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	// Further grouping labels, one per click into a group (workload). Needs groupBy.
+	drillDown?: [...string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"]
 	// Label holding a state (phase, reason). A series then counts only while its value is non-zero.
 	stateLabel?: string & =~"^[a-zA-Z_][a-zA-Z0-9_]*$"
+	currentOnly?: bool
 	format?:     common.#format
 	thresholds?: common.#thresholds
 	mappings?: [...common.#mappings]

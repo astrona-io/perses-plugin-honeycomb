@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-13
+
+### Added
+
+- Drill down: clicking a group, or pressing Enter on it, shows only its cells, and a breadcrumb
+  leads back. `drillDown` adds further grouping labels, one per click: with `groupBy: namespace`
+  and `drillDown: [workload]`, a namespace opens into its workloads and a workload into its pods.
+  The README has a query that adds the `workload` label.
+
+- `currentOnly` (default on): only series with a sample at the end of the time range become cells,
+  so a deleted pod no longer shows its last state for the rest of the range. Turn it off to reduce
+  whole series that ended earlier.
+
+### Changed
+
+- Group titles are at least 128 px wide (was 96), so more of a long name shows.
+- The tooltip lists every grouping label of the cell.
+
 ## [0.1.0] - 2026-11-13
 
 ### Added
@@ -24,5 +42,6 @@ All notable changes to this project are documented here. The format follows
   the GitHub release and the plugin image as `ghcr.io/astrona-io/perses-plugin-honeycomb:v<version>`
   (linux/amd64 and linux/arm64), with build provenance attestations.
 
-[Unreleased]: https://github.com/astrona-io/perses-plugin-honeycomb/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/astrona-io/perses-plugin-honeycomb/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/astrona-io/perses-plugin-honeycomb/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/astrona-io/perses-plugin-honeycomb/releases/tag/v0.1.0
