@@ -13,7 +13,9 @@ import {
 import { CalculationSelector } from "@perses-dev/plugin-system";
 import {
   CellShape,
+  DEFAULT_GROUP_LAYOUT,
   DEFAULT_SHAPE,
+  GroupLayout,
   DEFAULT_SORT,
   HoneycombChartEditorProps,
   HoneycombChartOptions,
@@ -122,6 +124,22 @@ export function HoneycombChartSettingsEditor(
               >
                 <MenuItem value="hexagon">Hexagon</MenuItem>
                 <MenuItem value="square">Square</MenuItem>
+              </TextField>
+            }
+          />
+          <OptionsEditorControl
+            label="Group layout"
+            control={
+              <TextField
+                select
+                size="small"
+                value={value.groupLayout ?? DEFAULT_GROUP_LAYOUT}
+                onChange={(e) =>
+                  set({ groupLayout: e.target.value as GroupLayout })
+                }
+              >
+                <MenuItem value="compact">Compact blocks</MenuItem>
+                <MenuItem value="row">Full-width rows</MenuItem>
               </TextField>
             }
           />

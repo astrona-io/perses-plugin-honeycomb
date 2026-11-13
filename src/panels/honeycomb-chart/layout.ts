@@ -1,4 +1,4 @@
-import { CellShape } from "./honeycomb-chart-types";
+import { CellShape, GroupLayout } from "./honeycomb-chart-types";
 
 /** Cell radius limits (px) when the size fits the panel. */
 export const MIN_RADIUS = 5;
@@ -9,7 +9,9 @@ export const GROUP_GAP = 12;
 /** Height of a group's title. */
 export const HEADER_HEIGHT = 18;
 /** A group is at least this wide (or the panel width) so its title stays readable. */
-const MIN_TITLE_WIDTH = 128;
+const MIN_TITLE_WIDTH = 140;
+/** Width over height of a compact group. */
+const COMPACT_ASPECT = 2;
 /** Gap between neighbouring cells. */
 const CELL_GAP = 1.5;
 
@@ -61,13 +63,18 @@ export interface Layout {
   height: number;
 }
 
-/** Lays groups out left to right, wrapping like text. `sizes` are the cell counts per group. */
+/**
+ * Lays groups out left to right, wrapping like text. `sizes` are the cell counts per group.
+ * `compact` packs each group into a block a little wider than tall, and never narrower than its
+ * title, so a small group stays one row; `row` lets a group run the full width.
+ */
 export function layoutAt(
   sizes: number[],
   width: number,
   shape: CellShape,
   radius: number,
   headers: boolean,
+  groupLayout: GroupLayout = "compact",
 ): Layout {
   const g = geometry(shape, radius);
   const header = headers ? HEADER_HEIGHT : 0;
@@ -77,7 +84,19 @@ export function layoutAt(
   let line = 0;
   for (const n of sizes) {
     const fit = Math.floor((width - g.oddOffset - g.cellWidth) / g.colStep) + 1;
-    const cols = Math.max(1, Math.min(n, fit));
+    let cols = Math.min(n, fit);
+    if (groupLayout === "compact" && headers) {
+      const block = Math.ceil(
+        Math.sqrt((COMPACT_ASPECT * n * g.rowStep) / g.colStep),
+      );
+      const title =
+        Math.floor(
+          (Math.min(width, MIN_TITLE_WIDTH) - g.oddOffset - g.cellWidth) /
+            g.colStep,
+        ) + 1;
+      cols = Math.min(cols, Math.max(block, title));
+    }
+    cols = Math.max(1, cols);
     const rows = Math.ceil(n / cols);
     const cellsWidth =
       (cols - 1) * g.colStep + g.cellWidth + (rows > 1 ? g.oddOffset : 0);
@@ -108,14 +127,15 @@ export function fitLayout(
   shape: CellShape,
   headers: boolean,
   fixed?: number,
+  groupLayout: GroupLayout = "compact",
 ): Layout {
   if (fixed !== undefined && fixed > 0)
-    return layoutAt(sizes, width, shape, fixed, headers);
+    return layoutAt(sizes, width, shape, fixed, headers, groupLayout);
   for (let r = MAX_RADIUS; r > MIN_RADIUS; r -= RADIUS_STEP) {
-    const l = layoutAt(sizes, width, shape, r, headers);
+    const l = layoutAt(sizes, width, shape, r, headers, groupLayout);
     if (l.height <= height) return l;
   }
-  return layoutAt(sizes, width, shape, MIN_RADIUS, headers);
+  return layoutAt(sizes, width, shape, MIN_RADIUS, headers, groupLayout);
 }
 
 /** Centre of the i-th cell inside its group box, relative to the box. */

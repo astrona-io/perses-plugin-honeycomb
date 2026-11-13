@@ -9,6 +9,7 @@ import {
 import { Box, Breadcrumbs, Link, Typography, useTheme } from "@mui/material";
 import { formatValue, useChartsTheme } from "@perses-dev/components";
 import {
+  DEFAULT_GROUP_LAYOUT,
   DEFAULT_SHAPE,
   DEFAULT_SORT,
   HoneycombChartProps,
@@ -44,6 +45,37 @@ function fitText(
   return max - 1 < minChars ? "" : `${text.slice(0, max - 1)}…`;
 }
 
+const TITLE_SIZE = 12;
+
+/** Bold group name, its cell count, and its problem count in the error colour. */
+function GroupTitle(props: {
+  name: string;
+  count: number;
+  problems: number;
+  width: number;
+}): ReactElement {
+  const { name, count, problems, width } = props;
+  const theme = useTheme();
+  const suffix = ` (${count})`;
+  const alert = problems ? ` ${problems}!` : "";
+  // Bold glyphs run a little wider than the 0.6 em fitText assumes.
+  const room = width - (suffix.length + alert.length) * TITLE_SIZE * 0.6;
+  return (
+    <text x={0} y={13} fontSize={TITLE_SIZE}>
+      <title>{name}</title>
+      <tspan fontWeight={600} fill={theme.palette.text.primary}>
+        {fitText(name, room, TITLE_SIZE * 1.08, 1)}
+      </tspan>
+      <tspan fill={theme.palette.text.secondary}>{suffix}</tspan>
+      {alert ? (
+        <tspan fontWeight={600} fill={theme.palette.error.main}>
+          {alert}
+        </tspan>
+      ) : null}
+    </text>
+  );
+}
+
 export function HoneycombChartComponent(
   props: HoneycombChartProps,
 ): ReactElement | null {
@@ -56,6 +88,7 @@ export function HoneycombChartComponent(
   const [path, setPath] = useState<string[]>([]);
 
   const shape = spec.shape ?? DEFAULT_SHAPE;
+  const groupLayout = spec.groupLayout ?? DEFAULT_GROUP_LAYOUT;
   const showValues = spec.showValues ?? true;
   const showLegend = spec.showLegend ?? true;
   const format = spec.format ?? DEFAULT_FORMAT;
@@ -150,8 +183,9 @@ export function HoneycombChartComponent(
         shape,
         headers,
         spec.cellSize,
+        groupLayout,
       ),
-    [groups, width, gridHeight, shape, headers, spec.cellSize],
+    [groups, width, gridHeight, shape, headers, spec.cellSize, groupLayout],
   );
 
   if (contentDimensions === undefined) return null;
@@ -318,19 +352,12 @@ export function HoneycombChartComponent(
                     />
                   ) : null}
                   {headers ? (
-                    <text
-                      x={0}
-                      y={12}
-                      fontSize={11}
-                      fill={muiTheme.palette.text.secondary}
-                    >
-                      <title>{group.name}</title>
-                      {fitText(
-                        `${group.name} · ${group.cells.length}${group.problems ? ` · ${group.problems}!` : ""}`,
-                        box.width,
-                        11,
-                      )}
-                    </text>
+                    <GroupTitle
+                      name={group.name}
+                      count={group.cells.length}
+                      problems={group.problems}
+                      width={box.width}
+                    />
                   ) : null}
                   {group.cells.map((cell, i) => {
                     const [cx, cy] = cellCentre(i, box.cols, g, header);

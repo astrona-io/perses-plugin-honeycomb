@@ -10,6 +10,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `groupLayout`: `compact` (the default) packs each group into a block a little wider than tall,
+  side by side, instead of a ribbon across the panel; a group stays as wide as its title, so a
+  small group is one row. `row` keeps the previous full-width layout.
+- A `dev/` stack (Perses, Prometheus and a made-up cluster) to try the plugin locally, and
+  screenshots in the README taken from it.
+
 - Drill down: clicking a group, or pressing Enter on it, shows only its cells, and a breadcrumb
   leads back. `drillDown` adds further grouping labels, one per click: with `groupBy: namespace`
   and `drillDown: [workload]`, a namespace opens into its workloads and a workload into its pods.
@@ -21,7 +27,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- Group titles are at least 128 px wide (was 96), so more of a long name shows.
+- Group titles are the group name in bold, its cell count in brackets, and the problem count in
+  the error colour; a group is at least 140 px wide (was 96), so more of a long name shows.
 - The tooltip lists every grouping label of the cell.
 
 ## [0.1.0] - 2026-11-13
