@@ -3,7 +3,7 @@ name: honeycomb-dev
 
 services:
   fake-metrics:
-    image: docker.io/library/python:3.13-alpine
+    image: docker.io/library/python:3.15-alpine
     command: ["python", "/app/fake_metrics.py"]
     volumes:
       - ./fake_metrics.py:/app/fake_metrics.py:ro,z
